@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ $# -eq 1 ]; then
+
+    if [ -e .git ]; then
+        echo git is detected.
+        GIT_EXIST=1
+    else
+        echo git is not detected.
+        GIT_EXIST=0
+    fi
+
+    echo -n $1 > /tmp/.new_version
+    OLD_VER=$(cat .version)
+    VER_DATE=$(date +%Y%m%d)
+
+    if [ $GIT_EXIST -eq 1 ]; then
+        git tag "v${OLD_VER}_${VER_DATE}"
+        git branch "v${OLD_VER}"
+    fi
+
+    fd -t f -e xml pom.xml -X sed "s/<version>$OLD_VER<\/version> *<!-- managed by updgitver -->$/<version>$1<\/version><!-- managed by updgitver -->/g" -i {}
+    fd -t f -e gradle build.gradle -X sed "s/'$OLD_VER' *\/\/ managed by updgitver$/'$1' \/\/ managed by updgitver/g" -i {}
+    fd -t f -e toml Cargo.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
+    fd -t f -e toml pyproject.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
+    fd -t f -e py setup.py -X sed "s/\"$OLD_VER\", *# managed by updgitver$/\"$1\", # managed by updgitver/g" -i {}
+
+    mv /tmp/.new_version .version
+
+    if [ $GIT_EXIST -eq 1 ]; then
+        git commit -a -m "build: change to new version: $1"
+    fi
+else
+  echo "usage: ugv x.y.z"
+fi
