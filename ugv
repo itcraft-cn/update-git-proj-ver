@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ ! -f .version ]; then
+    echo "Error: .version file not found, not a ugv managed project"
+    exit 1
+fi
+
 if [ $# -eq 1 ]; then
 
     if [ -e .git ]; then

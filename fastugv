@@ -10,6 +10,15 @@ function check_branch() {
     fi
 }
 
+function call_git_merge() {
+    branch_name=$1
+    if ! git merge $branch_name; then
+        echo "try to merge from $branch_name into current branch failed"
+        git merge --abort
+        exit 1
+    fi
+}
+
 param_size=$#
 if [ $param_size -eq 2 ]; then
     main_branch=main
@@ -32,9 +41,9 @@ check_branch $main_branch
 check_branch $dev_branch
 
 git checkout $main_branch
-git merge $dev_branch
-ugv $main_ver
+call_git_merge $dev_branch || exit 1
+ugv $main_ver || exit 1
 git checkout $dev_branch
-git merge $main_branch
-ugv $dev_ver
+call_git_merge $main_branch || exit 1
+ugv $dev_ver || exit 1
 git checkout $main_branch
