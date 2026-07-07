@@ -24,11 +24,30 @@ if [ $# -eq 1 ]; then
         git branch "v${OLD_VER}"
     fi
 
-    fd -t f -e xml pom.xml -X sed "s/<version>$OLD_VER<\/version> *<!-- managed by updgitver -->$/<version>$1<\/version><!-- managed by updgitver -->/g" -i {}
-    fd -t f -e gradle build.gradle -X sed "s/'$OLD_VER' *\/\/ managed by updgitver$/'$1' \/\/ managed by updgitver/g" -i {}
-    fd -t f -e toml Cargo.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
-    fd -t f -e toml pyproject.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
-    fd -t f -e py setup.py -X sed "s/\"$OLD_VER\", *# managed by updgitver$/\"$1\", # managed by updgitver/g" -i {}
+    files=$(fd -t f -e xml pom.xml)
+    if [ $files -gt 0 ]; then
+        fd -t f -e xml pom.xml -X sed "s/<version>$OLD_VER<\/version> *<!-- managed by updgitver -->$/<version>$1<\/version><!-- managed by updgitver -->/g" -i {}
+    fi
+    files=$(fd -t f -e gradle build.gradle)
+    if [ $files -gt 0 ]; then
+        fd -t f -e gradle build.gradle -X sed "s/'$OLD_VER' *\/\/ managed by updgitver$/'$1' \/\/ managed by updgitver/g" -i {}
+    fi
+    files=$(fd -t f -e toml Cargo.toml)
+    if [ $files -gt 0 ]; then
+        fd -t f -e toml Cargo.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
+    fi
+    files=$(fd -t f -e toml -E lib pyproject.toml)
+    if [ $files -gt 0 ]; then
+        fd -t f -e toml -E lib pyproject.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
+    fi
+    files=$(fd -t f -e py -E lib setup.py)
+    if [ $files -gt 0 ]; then
+        fd -t f -e py -E lib setup.py -X sed "s/\"$OLD_VER\", *# managed by updgitver$/\"$1\", # managed by updgitver/g" -i {}
+    fi
+    files=$(fd -t f -e json -E node_modules package.json)
+    if [ $files -gt 0 ]; then
+        fd -t f -e json -E node_modules package.json -X awk 'NR==3 {sub(/'$OLD_VER'/, "'$1'")} 1' {} > tmp.json && mv tmp.json package.json
+    fi
 
     mv /tmp/.new_version .version
 
@@ -38,3 +57,4 @@ if [ $# -eq 1 ]; then
 else
   echo "usage: ugv x.y.z"
 fi
+
