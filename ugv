@@ -24,27 +24,27 @@ if [ $# -eq 1 ]; then
         git branch "v${OLD_VER}"
     fi
 
-    files=$(fd -t f -e xml pom.xml)
+    files=$(fd -t f -e xml pom.xml | wc -l)
     if [ $files -gt 0 ]; then
         fd -t f -e xml pom.xml -X sed "s/<version>$OLD_VER<\/version> *<!-- managed by updgitver -->$/<version>$1<\/version><!-- managed by updgitver -->/g" -i {}
     fi
-    files=$(fd -t f -e gradle build.gradle)
+    files=$(fd -t f -e gradle build.gradle | wc -l)
     if [ $files -gt 0 ]; then
         fd -t f -e gradle build.gradle -X sed "s/'$OLD_VER' *\/\/ managed by updgitver$/'$1' \/\/ managed by updgitver/g" -i {}
     fi
-    files=$(fd -t f -e toml Cargo.toml)
+    files=$(fd -t f -e toml Cargo.toml | wc -l)
     if [ $files -gt 0 ]; then
         fd -t f -e toml Cargo.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
     fi
-    files=$(fd -t f -e toml -E lib pyproject.toml)
+    files=$(fd -t f -e toml -E lib pyproject.toml | wc -l)
     if [ $files -gt 0 ]; then
         fd -t f -e toml -E lib pyproject.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
     fi
-    files=$(fd -t f -e py -E lib setup.py)
+    files=$(fd -t f -e py -E lib setup.py | wc -l)
     if [ $files -gt 0 ]; then
         fd -t f -e py -E lib setup.py -X sed "s/\"$OLD_VER\", *# managed by updgitver$/\"$1\", # managed by updgitver/g" -i {}
     fi
-    files=$(fd -t f -e json -E node_modules package.json)
+    files=$(fd -t f -e json -E node_modules package.json | wc -l)
     if [ $files -gt 0 ]; then
         fd -t f -e json -E node_modules package.json -X awk 'NR==3 {sub(/'$OLD_VER'/, "'$1'")} 1' {} > tmp.json && mv tmp.json package.json
     fi
