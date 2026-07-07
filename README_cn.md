@@ -1,18 +1,28 @@
 # update-git-proj-ver
 
-通过放置 .version 文件，自动更新 git 项目版本号。
+通过放置 `.version` 文件，自动更新 Git 项目版本号。
 
-支持 `Maven`/`Gradle`/`Rust Cargo`/`Python setup.py` 等多种语言项目。
+## 核心功能
+
+- **ugv**：单一版本号更新工具，支持 Maven/Gradle/Rust/Python/Node.js
+- **fastugv**：Git 主/开发分支版本发布自动化
 
 ## 安装
 
 ```console
 sudo cp ugv /usr/local/bin
+sudo cp fastugv /usr/local/bin
 ```
 
-## 使用
+## 依赖
 
-前提:
+1. `git`
+2. `sed`
+3. [fdfind](https://github.com/sharkdp/fd)
+
+## ugv - 版本更新工具
+
+### 前提
 
 1. 在项目根目录下放置 `.version` 文件，内容为版本号，如 `1.0.0`。
 2. 在需要管理的文件中，对版本号进行标识。
@@ -35,15 +45,31 @@ sudo cp ugv /usr/local/bin
     version = "1.0.0" # managed by updgitver
     ```
 
-    4. Python setup.py
+    4. Python pyproject.toml
+
+    ```toml
+    version = "1.0.0" # managed by updgitver
+    ```
+
+    5. Python setup.py
 
     ```python
     version = "1.0.0", # managed by updgitver
     ```
 
-3. (可选)项目基于 `git` 管理。
+    6. Node.js package.json
 
-使用:
+    ```json
+    {
+      "name": "my-project",
+      "version": "1.0.0"
+    }
+    ```
+    注意：package.json 版本号必须在第 3 行。
+
+3. (可选) 项目基于 `git` 管理。
+
+### 使用
 
 ```console
 ugv 1.0.1
@@ -51,14 +77,53 @@ ugv 1.0.1
 
 将会按如下顺序执行:
 
-1. 基于当前最新 Git `HEAD` 及当日日期建立 Git `1.0.0_yyyymmdd` 标签。
-2. 基于基于当前最新 Git `HEAD` 建立 Git `v1.0.0` 分支。
-3. 更新 `pom.xml`/`build.gradle`/`Cargo.toml`/`setup.py` 中的版本号。
+1. 基于当前最新 Git `HEAD` 及当日日期建立 Git tag `v{旧版本}_{yyyymmdd}`。
+2. 基于当前最新 Git `HEAD` 建立 Git branch `v{旧版本}`。
+3. 更新 `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json` 中的版本号。
 4. 更新 `.version` 文件中的版本号。
-5. 提交并推送。
+5. 提交变更，提交信息为 `build: change to new version: {新版本}`。
 
-## 依赖
+## fastugv - 分支发布自动化
 
-1. `git`
-2. `sed`
-3. [fdfind](https://github.com/sharkdp/fd)
+### 作用
+
+为采用主/开发分支分离的项目自动化版本发布流程，实现分支间的双向同步和版本更新。
+
+### 使用
+
+```console
+# 默认：main 和 dev 分支
+fastugv <main版本> <dev版本>
+
+# 自定义分支名
+fastugv <主分支> <main版本> <开发分支> <dev版本>
+```
+
+### 工作流示例
+
+```console
+fastugv 1.0.0 1.1.0
+```
+
+将会执行：
+
+1. 切换到 `main` 分支
+2. 将 `dev` 分支合并到 `main`
+3. 在 `main` 分支执行 `ugv 1.0.0`（创建 tag、分支、更新版本号）
+4. 切换到 `dev` 分支
+5. 将 `main` 分支合并到 `dev`
+6. 在 `dev` 分支执行 `ugv 1.1.0`（创建 tag、分支、更新版本号）
+7. 切回 `main` 分支
+
+### 适用场景
+
+- 主/开发分支分离的发布流程
+- 自动完成版本同步和发布
+- 确保发布后两个分支版本号正确
+
+## 设计理念
+
+1. **单一真相源**：`.version` 文件作为版本号的唯一来源
+2. **标记即管理**：通过 `managed by updgitver` 注释标记需要管理的版本号
+3. **Git 深度集成**：自动创建 tag 和分支保存历史版本
+4. **发布工作流**：`fastugv` 实现 main/dev 分支的双向同步和版本发布
