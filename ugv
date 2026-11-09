@@ -46,7 +46,10 @@ if [ $# -eq 1 ]; then
     fi
     files=$(fd -t f -e json -E node_modules package.json | wc -l)
     if [ $files -gt 0 ]; then
-        fd -t f -e json -E node_modules package.json -X awk 'NR==3 {sub(/'$OLD_VER'/, "'$1'")} 1' {} > tmp.json && mv tmp.json package.json
+        while IFS= read -r pkg; do
+            awk -v old="$OLD_VER" -v new="$1" 'NR==3 && /"version"/ { sub(old, new) } 1' "$pkg" > "$pkg.tmp" \
+                && mv "$pkg.tmp" "$pkg"
+        done < <(fd -t f -e json -E node_modules package.json)
     fi
 
     mv /tmp/.new_version .version

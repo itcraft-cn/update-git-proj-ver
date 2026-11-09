@@ -1,5 +1,45 @@
 {
-  "name": "demo-single",
-  "version": "1.0.0",
-  "private": true
+  "name": "jsxlsb",
+  "version": "1.2.0-dev",
+  "description": "JavaScript XLSB (Excel Binary Workbook) reader/writer library",
+  "main": "dist/jsxlsb.js",
+  "types": "dist/jsxlsb.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "build:watch": "rollup -c -w",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "excel",
+    "xlsb",
+    "spreadsheet",
+    "binary",
+    "reader",
+    "writer"
+  ],
+  "author": "cn.itcraft",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/node": "^20.11.0",
+    "@types/pako": "^2.0.4",
+    "rollup": "^4.9.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.12"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/itcraft-cn/jsxlsb.git"
+  },
+  "dependencies": {
+    "pako": "^2.1.0"
+  }
 }

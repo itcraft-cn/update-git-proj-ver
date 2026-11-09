@@ -2,12 +2,26 @@
 
 ## 1. 测试环境
 
-- 工具：本地仓库 `ugv`（未做任何修复，直接被测）
+- 工具：本地仓库 `ugv`（已修复问题 1：package.json 处理）
 - 时间：2026-11-09
 - 平台：Linux / bash 5.2 / fd / git
 - 运行入口：`test/run-tests.sh`
 - 工作目录：`/tmp/opencode/ugv-tests`（可用 `WORK_ROOT` 覆盖）
-- 断言总数：80，通过 55，失败 25
+- 断言总数：80，通过 63，失败 17
+
+### 样本来源
+
+单项目 fixture 直接取自真实仓库 `xlsb-series` 的编译结构（提取到
+`/tmp/opencode/xlsb-samples` 作为样本后映照到测试名）：
+
+| 测试名 | 来源子项目 | 语言 | 真实版本 |
+|--------|-----------|------|----------|
+| `maven-single` | jxlsb | Java | `1.3.0-dev` |
+| `node-single` | jsxlsb | TypeScript | `1.2.0-dev` |
+| `cargo-single` | rxlsb | Rust | `0.5.0-dev` |
+| `cmake-single` | cxlsb | ANSI C | `0.2.999` |
+
+多模块用例仍为通用构造，覆盖单向引用。`xlsb-series` 原始仓库未被修改。
 
 ### 标记规约
 
@@ -34,34 +48,38 @@ JSON 无注释语法，`package.json` 仅按「第 3 行 version」约定管理�
 ./test/run-tests.sh
 ```
 
-脚本会对每个用例：复制 fixture 到临时目录 → `git init` 建立基线 → 执行 `ugv 1.1.0` →
+脚本会对每个用例：复制 fixture 到临时目录 → `git init` 建立基线 → 执行 `ugv <目标版本>` →
 校验版本号、依赖引用、是否产生多余文件、失败时是否可还原。任一断言失败则整体退出码为 1。
+目标版本按用例配置（单项目沿用真实版本线，多模块用 `1.0.0 → 1.1.0`）。
 
 ## 2. 通过情况
 
 以下用例完全通过：
 
-- `maven-single`、`maven-multi`
-- `node-single`
+- `maven-single`、`maven-multi`（真实 jxlsb pom）
+- `node-single`（真实 jsxlsb package.json）
+- `node-subdir`（修复问题 1 后通过）
 - `python-single`
-- `cargo-single`
+- `cargo-single`（真实 rxlsb Cargo.toml）
 
 体现的正确行为：带 `managed by updgitver` 标记的**文件自身版本行**可以被正确更新；
+每个 `package.json` 独立就地更新，不再合并或凭空生成根文件；
 Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 
 ## 3. 暴露的问题
 
-### 问题 1：package.json 被合并、并凭空生成根 package.json（严重，数据破坏）
+### 问题 1：package.json 被合并、并凭空生成根 package.json（已修复）
 
-- 现象 A（`node-multi`）：执行后根 `package.json` 被覆盖为「所有 package.json 内容的拼接」，
-  且只有全局第 3 行（第一个文件的 version）被替换；子目录 `packages/a`、`packages/b`
-  的 `package.json` 完全没有改动。原根文件内容被破坏。
-- 现象 B（`node-subdir`）：根目录本来没有 `package.json`，执行后**凭空多出**一个根
-  `package.json`（内容是子目录文件），子目录文件仍未更新。
-- 根因：`fd ... -X awk ... {} > tmp.json && mv tmp.json package.json` 中的重定向作用在
-  当前目录、且 `awk` 用 `NR==3` 只命中整个输入流的第 3 行，`mv` 又固定写回根 `package.json`。
-  该写法只能正确处理「根目录恰好有一个 package.json」的情况。
-- 影响：多模块 / 子目录项目中会**破坏文件并丢失版本信息**，属于数据破坏级缺陷。
+- 原现象 A（`node-multi`）：根 `package.json` 被覆盖为「所有 package.json 内容的拼接」，
+  且只有全局第 3 行被替换；子目录文件没有改动。
+- 原现象 B（`node-subdir`）：根目录本来没有 `package.json`，执行后凭空多出一个。
+- 原根因：`fd ... -X awk ... {} > tmp.json && mv tmp.json package.json` 的重定向作用在
+  当前目录、`awk` 的 `NR==3` 命中整个输入流而非单文件、`mv` 固定写回根文件。
+- 修复方式：改为对 `fd` 列出的每个 `package.json` 逐个就地处理
+  （`while read` + `awk -v old -v new 'NR==3 && /"version"/ {sub(old,new)}'` 写临时文件再 `mv`），
+  不再跨目录合并，也不会创建原本不存在的文件。
+- 验证结果：`node-subdir` 全部通过；`node-multi` 中根与各子包的 version 行均正确更新
+  （仅剩依赖引用未更新，见问题 4）。
 - 关联已知问题：1。
 
 ### 问题 2：出错时无法无痛还原，且失败被静默吞掉（严重）
@@ -97,7 +115,7 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
   内联表在版本后还有 ` }`，因此不匹配。
 - `python-multi`：`"demo-a==1.0.0", # managed by updgitver` 已带标记，但未更新。
   当前 sed 只匹配 `version="x", # managed...` 形式，无法匹配 `install_requires` 中的引用。
-- `node-multi`：`"@demo/a": "1.0.0"` 依赖未更新（连同问题 1 一起失效）。
+- `node-multi`：`"@demo/a": "1.0.0"` 依赖未更新（问题 1 修复后仍存在）。
   补充：JSON 无注释语法，依赖版本无法按本规约打标记，属于规约与实现都未覆盖的缺口。
 - Maven 通过，是因为依赖 `<version>` 行末恰好是标记，符合当前正则。
 - 根因：替换逻辑基于「整行末端紧邻标记」的正则，只覆盖少数固定写法，
@@ -106,14 +124,15 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 
 ## 4. 结论
 
-- 单项目、且版本行带标记的场景可用。
-- 多模块与非根 `package.json` 场景存在**数据破坏**和**漏更新**，不可直接用于生产。
+- 单项目、且版本行带标记的场景可用（含 jxlsb/jsxlsb/rxlsb 的真实结构）。
+- package.json 合并/凭空生成问题已修复；多模块 `package.json` 逐文件更新正确。
+- 多模块依赖引用仍漏更新（Cargo 内联表、Python install_requires、npm dependencies）。
 - 失败不具备事务性：无回滚、退出码不可信。
-- CMake 尚未支持。
+- CMake 尚未支持，`cmake-single` 取自 cxlsb 的真实 `0.2.999` 结构，仍无法自动升级。
 
-建议后续修复方向（不在本次变更范围）：
+建议后续修复方向（问题 1 已完成，其余不在本次变更范围）：
 
-1. 用结构化方式处理 JSON（如 `jq`）逐文件就地更新，禁止跨目录合并与凭空建文件；
+1. ~~用结构化方式逐文件就地更新 package.json，禁止跨目录合并与凭空建文件~~（已完成）；
 2. 所有外部命令检查返回码，脚本开头 `set -euo pipefail`，并用 `trap` 在失败时回滚
    （撤销标签/分支/文件改动）；
 3. 增加 CMakeLists.txt 的 `project(... VERSION ...)` 支持；

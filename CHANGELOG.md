@@ -11,11 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add self-contained test environment (`test/`) covering Maven/npm/Python/Cargo/CMake,
   single-project and multi-module (one-way reference) forms, plus failure injection
 - Add `test/REPORT.md` documenting the exposed defects
+- Single-project fixtures now mirror the real build structures of `xlsb-series`
+  (jxlsb/jsxlsb/rxlsb/cxlsb)
+
+### Fixed
+
+- Update each `package.json` in place instead of merging all of them into, and creating,
+  a root `package.json` (data-loss bug)
 
 ### Known Issues (exposed by tests)
 
-- Multiple/sub-directory `package.json` files are merged into a root `package.json`,
-  and a root file may be created out of nowhere, destroying data
 - Failures are silently swallowed (exit code 0) with partial edits and no rollback
 - CMake `project(... VERSION ...)` is not supported
 - Multi-module dependency references (Cargo inline table, Python install_requires) are not

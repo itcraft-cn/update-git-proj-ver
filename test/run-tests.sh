@@ -75,6 +75,9 @@ run_case() {
     mkdir -p "$work"
     cp -a "$fixtures_dir/$name/." "$work/"
 
+    local old_ver
+    old_ver=$(cat "$work/.version" 2>/dev/null)
+
     # 记录执行前的文件清单（排除 .git）
     find "$work" -type f ! -path '*/.git/*' -printf '%P\n' | sort >"$lists_dir/$name.before"
 
@@ -120,24 +123,24 @@ run_case() {
     case "$name" in
         maven-single)
             expect_has "$work/pom.xml" "<version>$new_ver</version>" "pom.xml 项目版本已更新"
-            expect_not_has "$work/pom.xml" "1.0.0" "pom.xml 无旧版本残留"
+            expect_not_has "$work/pom.xml" "$old_ver" "pom.xml 无旧版本残留"
             ;;
         maven-multi)
             expect_has "$work/pom.xml" "<version>$new_ver</version>" "父 pom 版本已更新"
             expect_has "$work/lib-a/pom.xml" "<version>$new_ver</version>" "lib-a pom 版本已更新"
             expect_has "$work/lib-b/pom.xml" "<version>$new_ver</version>" "lib-b pom 版本已更新"
-            expect_not_has "$work/lib-b/pom.xml" "<version>1.0.0</version>" "lib-b 对 lib-a 的依赖版本已更新"
-            expect_not_has "$work/pom.xml" "1.0.0" "父 pom 无旧版本残留"
-            expect_not_has "$work/lib-a/pom.xml" "1.0.0" "lib-a pom 无旧版本残留"
-            expect_not_has "$work/lib-b/pom.xml" "1.0.0" "lib-b pom 无旧版本残留"
+            expect_not_has "$work/lib-b/pom.xml" "<version>$old_ver</version>" "lib-b 对 lib-a 的依赖版本已更新"
+            expect_not_has "$work/pom.xml" "$old_ver" "父 pom 无旧版本残留"
+            expect_not_has "$work/lib-a/pom.xml" "$old_ver" "lib-a pom 无旧版本残留"
+            expect_not_has "$work/lib-b/pom.xml" "$old_ver" "lib-b pom 无旧版本残留"
             ;;
         node-single)
             expect_has "$work/package.json" "\"version\": \"$new_ver\"" "package.json 版本已更新"
-            expect_not_has "$work/package.json" "1.0.0" "package.json 无旧版本残留"
+            expect_not_has "$work/package.json" "$old_ver" "package.json 无旧版本残留"
             ;;
         node-subdir)
             expect_has "$work/packages/a/package.json" "\"version\": \"$new_ver\"" "packages/a 版本已更新"
-            expect_not_has "$work/packages/a/package.json" "1.0.0" "packages/a 无旧版本残留"
+            expect_not_has "$work/packages/a/package.json" "$old_ver" "packages/a 无旧版本残留"
             if [[ -e "$work/package.json" ]]; then
                 record_fail "根目录不应凭空出现 package.json"
             else
@@ -150,43 +153,43 @@ run_case() {
             expect_has "$work/packages/a/package.json" "\"version\": \"$new_ver\"" "packages/a 版本已更新"
             expect_has "$work/packages/b/package.json" "\"version\": \"$new_ver\"" "packages/b 版本已更新"
             expect_has "$work/packages/b/package.json" "\"@demo/a\": \"$new_ver\"" "packages/b 对 @demo/a 的依赖版本已更新"
-            expect_not_has "$work/package.json" "1.0.0" "根 package.json 无旧版本残留"
-            expect_not_has "$work/packages/a/package.json" "1.0.0" "packages/a 无旧版本残留"
-            expect_not_has "$work/packages/b/package.json" "1.0.0" "packages/b 无旧版本残留"
+            expect_not_has "$work/package.json" "$old_ver" "根 package.json 无旧版本残留"
+            expect_not_has "$work/packages/a/package.json" "$old_ver" "packages/a 无旧版本残留"
+            expect_not_has "$work/packages/b/package.json" "$old_ver" "packages/b 无旧版本残留"
             ;;
         python-single)
             expect_has "$work/setup.py" "\"$new_ver\"" "setup.py 版本已更新"
-            expect_not_has "$work/setup.py" "1.0.0" "setup.py 无旧版本残留"
+            expect_not_has "$work/setup.py" "$old_ver" "setup.py 无旧版本残留"
             ;;
         python-multi)
             expect_has "$work/pkg-a/setup.py" "\"$new_ver\"" "pkg-a 版本已更新"
             expect_has "$work/pkg-b/setup.py" "\"$new_ver\"" "pkg-b 版本已更新"
             expect_has "$work/pkg-b/setup.py" "demo-a==$new_ver" "pkg-b 对 pkg-a 的依赖版本已更新"
-            expect_not_has "$work/pkg-a/setup.py" "1.0.0" "pkg-a 无旧版本残留"
-            expect_not_has "$work/pkg-b/setup.py" "1.0.0" "pkg-b 无旧版本残留"
+            expect_not_has "$work/pkg-a/setup.py" "$old_ver" "pkg-a 无旧版本残留"
+            expect_not_has "$work/pkg-b/setup.py" "$old_ver" "pkg-b 无旧版本残留"
             ;;
         cargo-single)
             expect_has "$work/Cargo.toml" "version = \"$new_ver\"" "Cargo.toml 版本已更新"
-            expect_not_has "$work/Cargo.toml" "1.0.0" "Cargo.toml 无旧版本残留"
+            expect_not_has "$work/Cargo.toml" "$old_ver" "Cargo.toml 无旧版本残留"
             ;;
         cargo-multi)
             expect_has "$work/crates/a/Cargo.toml" "version = \"$new_ver\"" "crate a 版本已更新"
             expect_has "$work/crates/b/Cargo.toml" "version = \"$new_ver\"" "crate b 版本已更新"
             expect_has "$work/crates/b/Cargo.toml" "version = \"$new_ver\" }" "crate b 对 a 的依赖版本已更新"
-            expect_not_has "$work/crates/a/Cargo.toml" "1.0.0" "crate a 无旧版本残留"
-            expect_not_has "$work/crates/b/Cargo.toml" "1.0.0" "crate b 无旧版本残留"
+            expect_not_has "$work/crates/a/Cargo.toml" "$old_ver" "crate a 无旧版本残留"
+            expect_not_has "$work/crates/b/Cargo.toml" "$old_ver" "crate b 无旧版本残留"
             ;;
         cmake-single)
             expect_has "$work/CMakeLists.txt" "VERSION $new_ver" "单项目 CMakeLists 版本已更新"
-            expect_not_has "$work/CMakeLists.txt" "1.0.999" "单项目 CMakeLists 无旧版本残留"
+            expect_not_has "$work/CMakeLists.txt" "$old_ver" "单项目 CMakeLists 无旧版本残留"
             ;;
         cmake-multi)
             expect_has "$work/CMakeLists.txt" "VERSION $new_ver" "根 CMakeLists 版本已更新"
             expect_has "$work/lib-a/CMakeLists.txt" "VERSION $new_ver" "lib-a CMakeLists 版本已更新"
             expect_has "$work/lib-b/CMakeLists.txt" "VERSION $new_ver" "lib-b CMakeLists 版本已更新"
-            expect_not_has "$work/CMakeLists.txt" "1.0.999" "根 CMakeLists 无旧版本残留"
-            expect_not_has "$work/lib-a/CMakeLists.txt" "1.0.999" "lib-a CMakeLists 无旧版本残留"
-            expect_not_has "$work/lib-b/CMakeLists.txt" "1.0.999" "lib-b CMakeLists 无旧版本残留"
+            expect_not_has "$work/CMakeLists.txt" "$old_ver" "根 CMakeLists 无旧版本残留"
+            expect_not_has "$work/lib-a/CMakeLists.txt" "$old_ver" "lib-a CMakeLists 无旧版本残留"
+            expect_not_has "$work/lib-b/CMakeLists.txt" "$old_ver" "lib-b CMakeLists 无旧版本残留"
             ;;
         *)
             record_fail "未知用例"
@@ -278,16 +281,16 @@ main() {
     rm -rf "$work_root"
     mkdir -p "$lists_dir"
 
-    run_case maven-single 1.1.0
+    run_case maven-single 1.4.0-dev
     run_case maven-multi 1.1.0
-    run_case node-single 1.1.0
+    run_case node-single 1.3.0-dev
     run_case node-multi 1.1.0
     run_case node-subdir 1.1.0
     run_case python-single 1.1.0
     run_case python-multi 1.1.0
-    run_case cargo-single 1.1.0
+    run_case cargo-single 0.6.0-dev
     run_case cargo-multi 1.1.0
-    run_case cmake-single 1.1.0
+    run_case cmake-single 0.3.0
     run_case cmake-multi 1.1.0
 
     run_failure_rollback_case
