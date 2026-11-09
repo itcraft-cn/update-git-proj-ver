@@ -9,6 +9,12 @@
 - 工作目录：`/tmp/opencode/ugv-tests`（可用 `WORK_ROOT` 覆盖）
 - 断言总数：80，通过 55，失败 25
 
+### 标记规约
+
+所有需要管理的版本引用行均按规约带有 `managed by updgitver` 标记，
+包括跨模块依赖的版本行（Maven `<dependency>`、Cargo 内联表行末、Python `install_requires`）。
+JSON 无注释语法，`package.json` 仅按「第 3 行 version」约定管理。
+
 ### 用例矩阵
 
 每个生态均覆盖「单项目」与「多模块（含单向引用）」两种形态：
@@ -82,16 +88,20 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 
 ### 问题 4：多模块单向引用依赖未更新（功能缺陷）
 
-只在「依赖版本行本身也打了标记」时才会更新，常见真实写法不会被处理：
+本测试已严格遵循规约：所有需要管理的版本引用行都带有 `managed by updgitver` 标记
+（Maven `<dependency>` 的 `<version>`、Cargo 内联表行末、Python `install_requires` 行末）。
+在此前提下的实际结果：
 
-- `cargo-multi`：`a = { path = "../a", version = "1.0.0" }`（内联表）未更新。
-  当前 sed 只匹配整行形如 `version = "x" # managed by updgitver` 的形式。
-- `python-multi`：`install_requires=["demo-a==1.0.0"]` 未更新。
-  当前 sed 只匹配 `version="x", # managed...` 形式。
+- `cargo-multi`：`a = { path = "../a", version = "1.0.0" } # managed by updgitver`
+  已带标记，但未更新。当前 sed 要求 `version = "x" # managed...` 恰好位于行尾，
+  内联表在版本后还有 ` }`，因此不匹配。
+- `python-multi`：`"demo-a==1.0.0", # managed by updgitver` 已带标记，但未更新。
+  当前 sed 只匹配 `version="x", # managed...` 形式，无法匹配 `install_requires` 中的引用。
 - `node-multi`：`"@demo/a": "1.0.0"` 依赖未更新（连同问题 1 一起失效）。
-- Maven 之所以通过，是因为 fixture 在 `<dependency>` 的 `<version>` 行显式加了标记；
-  真实项目通常不会给每个依赖版本行加标记，因此同样存在漏更新风险。
-- 根因：替换逻辑基于「整行末端标记」的正则，覆盖面窄，无法表达结构化依赖引用。
+  补充：JSON 无注释语法，依赖版本无法按本规约打标记，属于规约与实现都未覆盖的缺口。
+- Maven 通过，是因为依赖 `<version>` 行末恰好是标记，符合当前正则。
+- 根因：替换逻辑基于「整行末端紧邻标记」的正则，只覆盖少数固定写法，
+  无法表达结构化依赖引用；即使按规约打标，非该写法也会漏更新。
 - 关联已知问题：4。
 
 ## 4. 结论

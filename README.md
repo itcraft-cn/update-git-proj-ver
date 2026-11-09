@@ -38,7 +38,9 @@ See `test/REPORT.md` for the latest findings.
 ### Prerequisites
 
 1. Place a `.version` file in the project root directory with the version number, e.g. `1.0.0`.
-2. Mark the version number in files that need to be managed.
+2. Mark the version number in files that need to be managed. Version references in dependencies
+   (e.g. Maven `<dependency>`, Cargo dependency entries) must also carry the same marker if they
+   should be managed.
 
     1. Maven pom.xml
 

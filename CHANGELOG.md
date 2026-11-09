@@ -18,8 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   and a root file may be created out of nowhere, destroying data
 - Failures are silently swallowed (exit code 0) with partial edits and no rollback
 - CMake `project(... VERSION ...)` is not supported
-- Multi-module dependency references (Cargo inline table, Python install_requires,
-  npm dependencies) are not updated unless the whole line carries the marker
+- Multi-module dependency references (Cargo inline table, Python install_requires) are not
+  updated even when marked, because only a few fixed line forms are matched
+- npm dependencies inside package.json cannot be marked (JSON has no comments)
 
 ## [1.2.0] - 2026-07-07
 

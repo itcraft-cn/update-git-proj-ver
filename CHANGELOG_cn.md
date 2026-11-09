@@ -17,7 +17,9 @@
 - 多处/子目录 `package.json` 被合并进根 `package.json`，甚至会凭空生成根文件，造成数据破坏
 - 失败被静默吞掉（退出码 0），出现部分修改且无法回滚
 - 不支持 CMake `project(... VERSION ...)`
-- 多模块依赖引用（Cargo 内联表、Python install_requires、npm dependencies）在整行未带标记时不会更新
+- 多模块依赖引用（Cargo 内联表、Python install_requires）即使带标记也不会更新，
+  因为仅匹配少数固定行形式
+- package.json 内的 npm 依赖无法打标记（JSON 无注释语法）
 
 ## [1.2.0] - 2026-07-07
 
