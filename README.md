@@ -4,7 +4,7 @@ Automatically update git project version numbers by placing a `.version` file.
 
 ## Core Features
 
-- **ugv**: Single version update tool, supports Maven/Gradle/Rust/Python/Node.js
+- **ugv**: Single version update tool, supports Maven/Gradle/Rust/Python/Node.js/CMake
 - **fastugv**: Git main/dev branch version release automation
 
 ## Installation
@@ -82,6 +82,14 @@ See `test/REPORT.md` for the latest findings.
     ```
     Note: package.json version must be on line 3.
 
+    7. CMake CMakeLists.txt
+
+    ```cmake
+    project(my-project VERSION 1.0.0 LANGUAGES C) # managed by updgitver
+    ```
+    Note: CMake does not support pre-release suffixes like `1.0.0-dev`; use a numeric
+    placeholder such as `1.0.999` for development and upgrade to the next release version.
+
 3. (Optional) The project is managed with `git`.
 
 ### Usage
@@ -94,7 +102,7 @@ Will execute in the following order:
 
 1. Create a Git tag `v{old_version}_{yyyymmdd}` based on the latest Git `HEAD` and current date.
 2. Create a Git branch `v{old_version}` based on the latest Git `HEAD`.
-3. Update version numbers in `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json`.
+3. Update version numbers in `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json`/`CMakeLists.txt`.
 4. Update version number in `.version` file.
 5. Commit changes with message `build: change to new version: {new_version}`.
 

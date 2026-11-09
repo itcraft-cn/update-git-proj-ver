@@ -4,7 +4,7 @@
 
 ## 核心功能
 
-- **ugv**：单一版本号更新工具，支持 Maven/Gradle/Rust/Python/Node.js
+- **ugv**：单一版本号更新工具，支持 Maven/Gradle/Rust/Python/Node.js/CMake
 - **fastugv**：Git 主/开发分支版本发布自动化
 
 ## 安装
@@ -80,6 +80,14 @@ sudo cp fastugv /usr/local/bin
     ```
     注意：package.json 版本号必须在第 3 行。
 
+    7. CMake CMakeLists.txt
+
+    ```cmake
+    project(my-project VERSION 1.0.0 LANGUAGES C) # managed by updgitver
+    ```
+    注意：CMake 不支持 `1.0.0-dev` 这类预发布后缀；开发期可用 `1.0.999` 之类的数字占位，
+    发布时再升级到下一个版本号。
+
 3. (可选) 项目基于 `git` 管理。
 
 ### 使用
@@ -92,7 +100,7 @@ ugv 1.0.1
 
 1. 基于当前最新 Git `HEAD` 及当日日期建立 Git tag `v{旧版本}_{yyyymmdd}`。
 2. 基于当前最新 Git `HEAD` 建立 Git branch `v{旧版本}`。
-3. 更新 `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json` 中的版本号。
+3. 更新 `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json`/`CMakeLists.txt` 中的版本号。
 4. 更新 `.version` 文件中的版本号。
 5. 提交变更，提交信息为 `build: change to new version: {新版本}`。
 

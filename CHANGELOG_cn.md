@@ -8,6 +8,8 @@
 
 ### 新增
 
+- 新增 `CMakeLists.txt` 支持：更新带 `managed by updgitver` 标记的
+  `project(... VERSION ...)` 行（仅数字版本，不支持 `-dev` 后缀）
 - 新增自包含测试环境（`test/`），覆盖 Maven/npm/Python/Cargo/CMake 的单项目与
   多模块（单向引用）形态，并包含故障注入用例
 - 新增 `test/REPORT.md` 记录测试暴露的缺陷
@@ -20,7 +22,6 @@
 ### 已知问题（由测试暴露）
 
 - 失败被静默吞掉（退出码 0），出现部分修改且无法回滚
-- 不支持 CMake `project(... VERSION ...)`
 - 多模块依赖引用（Cargo 内联表、Python install_requires）即使带标记也不会更新，
   因为仅匹配少数固定行形式
 - package.json 内的 npm 依赖无法打标记（JSON 无注释语法）

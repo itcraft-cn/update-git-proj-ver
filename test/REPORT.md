@@ -7,7 +7,7 @@
 - 平台：Linux / bash 5.2 / fd / git
 - 运行入口：`test/run-tests.sh`
 - 工作目录：`/tmp/opencode/ugv-tests`（可用 `WORK_ROOT` 覆盖）
-- 断言总数：80，通过 63，失败 17
+- 断言总数：80，通过 71，失败 9
 
 ### 样本来源
 
@@ -61,6 +61,7 @@ JSON 无注释语法，`package.json` 仅按「第 3 行 version」约定管理�
 - `node-subdir`（修复问题 1 后通过）
 - `python-single`
 - `cargo-single`（真实 rxlsb Cargo.toml）
+- `cmake-single`、`cmake-multi`（支持 CMake 后通过；真实 cxlsb `0.2.999`）
 
 体现的正确行为：带 `managed by updgitver` 标记的**文件自身版本行**可以被正确更新；
 每个 `package.json` 独立就地更新，不再合并或凭空生成根文件；
@@ -96,12 +97,15 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 - 影响：失败现场被掩盖，仓库进入不一致状态且难以察觉。
 - 关联已知问题：2。
 
-### 问题 3：不支持 CMake（功能缺失）
+### 问题 3：不支持 CMake（已修复）
 
-- `cmake-single` / `cmake-multi` 中 `project(... VERSION ...)` 完全没有被更新。
-- 根因：`ugv` 没有处理 `CMakeLists.txt` 的分支。
-- 影响：CMake 项目无法纳入统一版本管理；叠加「CMake 不支持 `x.y.z-dev`」的既有约束，
-  用户只能手工维护 `x.y.999 → x.y+1.0` 的升级。
+- 原现象：`cmake-single` / `cmake-multi` 中 `project(... VERSION ...)` 完全没有被更新。
+- 原根因：`ugv` 没有处理 `CMakeLists.txt` 的分支。
+- 修复方式：新增 CMake 分支，对带 `# managed by updgitver` 标记的行执行
+  `s/VERSION <old>/VERSION <new>/`，逐文件就地更新。
+- 验证结果：`cmake-single`（真实 cxlsb `0.2.999 → 0.3.0`）与 `cmake-multi` 全部通过；
+  真实 cxlsb 副本实测 `.version` 与 `CMakeLists.txt` 同步更新。
+- 已知限制：CMake 不支持 `-dev` 后缀，开发期请使用 `x.y.999` 数字占位。
 - 关联已知问题：3。
 
 ### 问题 4：多模块单向引用依赖未更新（功能缺陷）
@@ -124,17 +128,17 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 
 ## 4. 结论
 
-- 单项目、且版本行带标记的场景可用（含 jxlsb/jsxlsb/rxlsb 的真实结构）。
+- 单项目、且版本行带标记的场景可用（含 jxlsb/jsxlsb/rxlsb/cxlsb 的真实结构）。
 - package.json 合并/凭空生成问题已修复；多模块 `package.json` 逐文件更新正确。
+- CMake `project(... VERSION ...)` 已支持，`x.y.999 → x.y+1.0` 的升级路径可自动化。
 - 多模块依赖引用仍漏更新（Cargo 内联表、Python install_requires、npm dependencies）。
 - 失败不具备事务性：无回滚、退出码不可信。
-- CMake 尚未支持，`cmake-single` 取自 cxlsb 的真实 `0.2.999` 结构，仍无法自动升级。
 
-建议后续修复方向（问题 1 已完成，其余不在本次变更范围）：
+建议后续修复方向（问题 1、3 已完成，其余不在本次变更范围）：
 
-1. ~~用结构化方式逐文件就地更新 package.json，禁止跨目录合并与凭空建文件~~（已完成）；
+1. ~~逐文件就地更新 package.json，禁止跨目录合并与凭空建文件~~（已完成）；
 2. 所有外部命令检查返回码，脚本开头 `set -euo pipefail`，并用 `trap` 在失败时回滚
    （撤销标签/分支/文件改动）；
-3. 增加 CMakeLists.txt 的 `project(... VERSION ...)` 支持；
+3. ~~增加 CMakeLists.txt 的 `project(... VERSION ...)` 支持~~（已完成）；
 4. 依赖引用改为按生态的语义匹配（Cargo 内联表、Python install_requires、npm dependencies、
    Maven dependency 版本），而非整行末端标记。

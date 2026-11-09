@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Add `CMakeLists.txt` support: update `project(... VERSION ...)` on lines marked with
+  `managed by updgitver` (numeric versions only; `-dev` suffixes are not supported)
 - Add self-contained test environment (`test/`) covering Maven/npm/Python/Cargo/CMake,
   single-project and multi-module (one-way reference) forms, plus failure injection
 - Add `test/REPORT.md` documenting the exposed defects
@@ -22,7 +24,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Known Issues (exposed by tests)
 
 - Failures are silently swallowed (exit code 0) with partial edits and no rollback
-- CMake `project(... VERSION ...)` is not supported
 - Multi-module dependency references (Cargo inline table, Python install_requires) are not
   updated even when marked, because only a few fixed line forms are matched
 - npm dependencies inside package.json cannot be marked (JSON has no comments)
