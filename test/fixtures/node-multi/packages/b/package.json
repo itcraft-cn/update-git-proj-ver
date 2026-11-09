@@ -1,0 +1,8 @@
+{
+  "name": "@demo/b",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@demo/a": "1.0.0"
+  }
+}

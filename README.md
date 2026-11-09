@@ -20,6 +20,19 @@ sudo cp fastugv /usr/local/bin
 2. `sed`
 3. [fdfind](https://github.com/sharkdp/fd)
 
+## Testing
+
+A self-contained test environment covers five ecosystems (Maven / npm / Python / Cargo / CMake),
+each in single-project and multi-module (with one-way reference) form, plus failure-injection:
+
+```console
+./test/run-tests.sh
+```
+
+Each case is copied to a temporary directory, initialized as a git repo, executed with `ugv`,
+then verified for version updates, dependency references, unexpected files, and recoverability.
+See `test/REPORT.md` for the latest findings.
+
 ## ugv - Version Update Tool
 
 ### Prerequisites

@@ -20,6 +20,18 @@ sudo cp fastugv /usr/local/bin
 2. `sed`
 3. [fdfind](https://github.com/sharkdp/fd)
 
+## 测试
+
+项目内置自包含测试环境，覆盖五类生态（Maven / npm / Python / Cargo / CMake），
+每类均含单项目与多模块（带单向引用）形态，并包含故障注入用例：
+
+```console
+./test/run-tests.sh
+```
+
+每个用例会被复制到临时目录、初始化为 git 仓库、执行 `ugv` 后校验版本更新、依赖引用、
+多余文件与失败可还原性。最新结论见 `test/REPORT.md`。
+
 ## ugv - 版本更新工具
 
 ### 前提

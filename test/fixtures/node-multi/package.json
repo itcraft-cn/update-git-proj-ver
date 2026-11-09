@@ -1,0 +1,9 @@
+{
+  "name": "demo-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/a",
+    "packages/b"
+  ]
+}

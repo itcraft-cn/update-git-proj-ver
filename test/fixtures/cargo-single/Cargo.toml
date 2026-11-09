@@ -1,0 +1,7 @@
+[package]
+name = "demo-single"
+version = "1.0.0" # managed by updgitver
+edition = "2021"
+
+[dependencies]
+serde = "1.0"

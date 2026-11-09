@@ -4,6 +4,21 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [未发布]
+
+### 新增
+
+- 新增自包含测试环境（`test/`），覆盖 Maven/npm/Python/Cargo/CMake 的单项目与
+  多模块（单向引用）形态，并包含故障注入用例
+- 新增 `test/REPORT.md` 记录测试暴露的缺陷
+
+### 已知问题（由测试暴露）
+
+- 多处/子目录 `package.json` 被合并进根 `package.json`，甚至会凭空生成根文件，造成数据破坏
+- 失败被静默吞掉（退出码 0），出现部分修改且无法回滚
+- 不支持 CMake `project(... VERSION ...)`
+- 多模块依赖引用（Cargo 内联表、Python install_requires、npm dependencies）在整行未带标记时不会更新
+
 ## [1.2.0] - 2026-07-07
 
 ### 新增
