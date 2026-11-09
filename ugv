@@ -1,67 +1,144 @@
 #!/bin/bash
+set -eu
 
 if [ ! -f .version ]; then
     echo "Error: .version file not found, not a ugv managed project"
     exit 1
 fi
 
-if [ $# -eq 1 ]; then
-
-    if [ -e .git ]; then
-        echo git is detected.
-        GIT_EXIST=1
-    else
-        echo git is not detected.
-        GIT_EXIST=0
-    fi
-
-    echo -n $1 > /tmp/.new_version
-    OLD_VER=$(cat .version)
-    VER_DATE=$(date +%Y%m%d)
-
-    if [ $GIT_EXIST -eq 1 ]; then
-        git tag "v${OLD_VER}_${VER_DATE}"
-        git branch "v${OLD_VER}"
-    fi
-
-    files=$(fd -t f -e xml pom.xml | wc -l)
-    if [ $files -gt 0 ]; then
-        fd -t f -e xml pom.xml -X sed "s/<version>$OLD_VER<\/version> *<!-- managed by updgitver -->$/<version>$1<\/version><!-- managed by updgitver -->/g" -i {}
-    fi
-    files=$(fd -t f -e gradle build.gradle | wc -l)
-    if [ $files -gt 0 ]; then
-        fd -t f -e gradle build.gradle -X sed "s/'$OLD_VER' *\/\/ managed by updgitver$/'$1' \/\/ managed by updgitver/g" -i {}
-    fi
-    files=$(fd -t f -e txt CMakeLists.txt | wc -l)
-    if [ $files -gt 0 ]; then
-        fd -t f -e txt CMakeLists.txt -X sed -i "/# managed by updgitver\$/ s/VERSION ${OLD_VER}/VERSION $1/" {}
-    fi
-    files=$(fd -t f -e toml Cargo.toml | wc -l)
-    if [ $files -gt 0 ]; then
-        fd -t f -e toml Cargo.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
-    fi
-    files=$(fd -t f -e toml -E lib pyproject.toml | wc -l)
-    if [ $files -gt 0 ]; then
-        fd -t f -e toml -E lib pyproject.toml -X sed "s/\"$OLD_VER\" *# managed by updgitver$/\"$1\" # managed by updgitver/g" -i {}
-    fi
-    files=$(fd -t f -e py -E lib setup.py | wc -l)
-    if [ $files -gt 0 ]; then
-        fd -t f -e py -E lib setup.py -X sed "s/\"$OLD_VER\", *# managed by updgitver$/\"$1\", # managed by updgitver/g" -i {}
-    fi
-    files=$(fd -t f -e json -E node_modules package.json | wc -l)
-    if [ $files -gt 0 ]; then
-        while IFS= read -r pkg; do
-            awk -v old="$OLD_VER" -v new="$1" 'NR==3 && /"version"/ { sub(old, new) } 1' "$pkg" > "$pkg.tmp" \
-                && mv "$pkg.tmp" "$pkg"
-        done < <(fd -t f -e json -E node_modules package.json)
-    fi
-
-    mv /tmp/.new_version .version
-
-    if [ $GIT_EXIST -eq 1 ]; then
-        git commit -a -m "build: change to new version: $1"
-    fi
-else
-  echo "usage: ugv x.y.z"
+if [ $# -ne 1 ]; then
+    echo "usage: ugv x.y.z"
+    exit 1
 fi
 
+if ! command -v fd >/dev/null 2>&1; then
+    echo "Error: fd (fdfind) not found"
+    exit 1
+fi
+
+new_ver=$1
+old_ver=$(cat .version)
+ver_date=$(date +%Y%m%d)
+
+if [ -e .git ]; then
+    echo "git is detected."
+    git_exist=1
+else
+    echo "git is not detected."
+    git_exist=0
+fi
+
+tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/ugv.XXXXXX")
+backup_dir=$tmp_dir/backup
+mkdir -p "$backup_dir"
+
+created_tag=""
+created_branch=""
+success=0
+modified_files=()
+
+backup_file() {
+    local f=$1
+    local dest=$backup_dir/$f
+    mkdir -p "$(dirname "$dest")"
+    cp -a "$f" "$dest"
+    modified_files+=("$f")
+}
+
+restore_files() {
+    local f
+    for f in "${modified_files[@]}"; do
+        if [ -e "$backup_dir/$f" ]; then
+            cp -a "$backup_dir/$f" "$f" || true
+        fi
+    done
+}
+
+rollback() {
+    echo "Error: ugv failed, rolling back changes..." >&2
+    restore_files
+    if [ $git_exist -eq 1 ] && [ ${#modified_files[@]} -gt 0 ]; then
+        git reset -q -- "${modified_files[@]}" >/dev/null 2>&1 || true
+    fi
+    if [ -n "$created_tag" ]; then
+        git tag -d "$created_tag" >/dev/null 2>&1 || true
+    fi
+    if [ -n "$created_branch" ]; then
+        git branch -D "$created_branch" >/dev/null 2>&1 || true
+    fi
+    echo "Rollback completed." >&2
+}
+
+on_exit() {
+    local rc=$?
+    trap - EXIT
+    if [ "$success" -ne 1 ]; then
+        rollback
+    fi
+    rm -rf "$tmp_dir"
+    exit "$rc"
+}
+trap on_exit EXIT
+
+# 备份 .version，以便失败时还原
+backup_file .version
+
+if [ $git_exist -eq 1 ]; then
+    git tag "v${old_ver}_${ver_date}"
+    created_tag="v${old_ver}_${ver_date}"
+    git branch "v${old_ver}"
+    created_branch="v${old_ver}"
+fi
+
+mapfile -t pom_files < <(fd -t f -e xml pom.xml)
+if [ ${#pom_files[@]} -gt 0 ]; then
+    for f in "${pom_files[@]}"; do backup_file "$f"; done
+    sed -i "s/<version>${old_ver}<\/version> *<!-- managed by updgitver -->\$/<version>${new_ver}<\/version><!-- managed by updgitver -->/g" "${pom_files[@]}"
+fi
+
+mapfile -t gradle_files < <(fd -t f -e gradle build.gradle)
+if [ ${#gradle_files[@]} -gt 0 ]; then
+    for f in "${gradle_files[@]}"; do backup_file "$f"; done
+    sed -i "s/'${old_ver}' *\/\/ managed by updgitver\$/'${new_ver}' \/\/ managed by updgitver/g" "${gradle_files[@]}"
+fi
+
+mapfile -t cmake_files < <(fd -t f -e txt CMakeLists.txt)
+if [ ${#cmake_files[@]} -gt 0 ]; then
+    for f in "${cmake_files[@]}"; do backup_file "$f"; done
+    sed -i "/# managed by updgitver\$/ s/VERSION ${old_ver}/VERSION ${new_ver}/" "${cmake_files[@]}"
+fi
+
+mapfile -t cargo_files < <(fd -t f -e toml Cargo.toml)
+if [ ${#cargo_files[@]} -gt 0 ]; then
+    for f in "${cargo_files[@]}"; do backup_file "$f"; done
+    sed -i "s/\"${old_ver}\" *# managed by updgitver\$/\"${new_ver}\" # managed by updgitver/g" "${cargo_files[@]}"
+fi
+
+mapfile -t pyproject_files < <(fd -t f -e toml -E lib pyproject.toml)
+if [ ${#pyproject_files[@]} -gt 0 ]; then
+    for f in "${pyproject_files[@]}"; do backup_file "$f"; done
+    sed -i "s/\"${old_ver}\" *# managed by updgitver\$/\"${new_ver}\" # managed by updgitver/g" "${pyproject_files[@]}"
+fi
+
+mapfile -t setup_files < <(fd -t f -e py -E lib setup.py)
+if [ ${#setup_files[@]} -gt 0 ]; then
+    for f in "${setup_files[@]}"; do backup_file "$f"; done
+    sed -i "s/\"${old_ver}\", *# managed by updgitver\$/\"${new_ver}\", # managed by updgitver/g" "${setup_files[@]}"
+fi
+
+mapfile -t pkg_files < <(fd -t f -e json -E node_modules package.json)
+if [ ${#pkg_files[@]} -gt 0 ]; then
+    for f in "${pkg_files[@]}"; do
+        backup_file "$f"
+        awk -v old="$old_ver" -v new="$new_ver" 'NR==3 && /"version"/ { sub(old, new) } 1' "$f" > "$tmp_dir/pkg.tmp"
+        cp "$tmp_dir/pkg.tmp" "$f"
+    done
+fi
+
+printf '%s' "$new_ver" > .version
+
+if [ $git_exist -eq 1 ]; then
+    git commit -a -m "build: change to new version: $new_ver"
+fi
+
+success=1

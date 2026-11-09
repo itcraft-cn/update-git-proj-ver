@@ -104,6 +104,9 @@ ugv 1.0.1
 4. 更新 `.version` 文件中的版本号。
 5. 提交变更，提交信息为 `build: change to new version: {新版本}`。
 
+任一步骤失败时，`ugv` 会恢复本次所有被修改的文件、删除本次创建的 Git tag/branch，
+并以非 0 退出，不留下部分修改状态。
+
 ## fastugv - 分支发布自动化
 
 ### 作用

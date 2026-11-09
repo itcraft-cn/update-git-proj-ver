@@ -265,6 +265,14 @@ run_failure_rollback_case() {
         record_pass "失败后未残留 Git 标签/分支"
     fi
 
+    local dirty
+    dirty=$( cd "$work" && git status --porcelain | wc -l )
+    if [[ $dirty -eq 0 ]]; then
+        record_pass "失败后工作区干净（无残留改动/暂存）"
+    else
+        record_fail "失败后工作区仍有残留改动（$dirty 项）"
+    fi
+
     if [[ $case_failed -eq 0 ]]; then
         printf '  -> 用例通过\n'
     else

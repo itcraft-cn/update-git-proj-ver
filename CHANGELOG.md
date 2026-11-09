@@ -20,10 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Update each `package.json` in place instead of merging all of them into, and creating,
   a root `package.json` (data-loss bug)
+- Detect failures (`set -eu`) and roll back all file changes plus any tag/branch created
+  by the run, then exit non-zero
 
 ### Known Issues (exposed by tests)
 
-- Failures are silently swallowed (exit code 0) with partial edits and no rollback
 - Multi-module dependency references (Cargo inline table, Python install_requires) are not
   updated even when marked, because only a few fixed line forms are matched
 - npm dependencies inside package.json cannot be marked (JSON has no comments)

@@ -7,7 +7,7 @@
 - 平台：Linux / bash 5.2 / fd / git
 - 运行入口：`test/run-tests.sh`
 - 工作目录：`/tmp/opencode/ugv-tests`（可用 `WORK_ROOT` 覆盖）
-- 断言总数：80，通过 71，失败 9
+- 断言总数：81，通过 75，失败 6
 
 ### 样本来源
 
@@ -62,6 +62,7 @@ JSON 无注释语法，`package.json` 仅按「第 3 行 version」约定管理�
 - `python-single`
 - `cargo-single`（真实 rxlsb Cargo.toml）
 - `cmake-single`、`cmake-multi`（支持 CMake 后通过；真实 cxlsb `0.2.999`）
+- `failure-rollback`（失败可识别、可回滚）
 
 体现的正确行为：带 `managed by updgitver` 标记的**文件自身版本行**可以被正确更新；
 每个 `package.json` 独立就地更新，不再合并或凭空生成根文件；
@@ -83,18 +84,19 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
   （仅剩依赖引用未更新，见问题 4）。
 - 关联已知问题：1。
 
-### 问题 2：出错时无法无痛还原，且失败被静默吞掉（严重）
+### 问题 2：出错时无法无痛还原，且失败被静默吞掉（已修复）
 
-- 用例 `failure-rollback`：对 `lib-b` 目录注入写失败（`chmod 555`），`sed` 报
-  `Permission denied`。
-- 实际结果：
-  - `ugv` 退出码仍为 **0**；
-  - 父 pom 与 `.version` 未按预期更新、`lib-a` 已更新、`lib-b` 未更新，形成**部分修改**；
-  - Git 标签 `v1.0.0_<日期>` 与分支仍然残留；
-  - 最后还执行了 `git commit -a`，把部分修改提交入库。
-- 根因：脚本未启用 `set -e` / 未检查各步骤返回值，没有 `trap` 回滚；
-  标签/分支在文件修改之前创建，失败后不会清理。
-- 影响：失败现场被掩盖，仓库进入不一致状态且难以察觉。
+- 原现象（`failure-rollback`）：对 `lib-b` 目录注入写失败（`chmod 555`）后，
+  `ugv` 退出码仍为 0，出现部分修改，Git 标签/分支残留，并提交了部分修改。
+- 原根因：未启用 `set -e`、未检查各步骤返回值，没有 `trap` 回滚；
+  标签/分支先于文件修改创建，失败后不清理。
+- 修复方式：
+  - 脚本改为 `set -eu`，任一命令失败即中止；
+  - 修改前把 `.version` 与所有待改文件备份到临时目录；
+  - `trap on_exit EXIT`：失败时恢复全部备份文件、删除本次创建的 tag 与 branch、
+    清理临时目录，并以非 0 退出；成功才跳过回滚。
+- 验证结果：`failure-rollback` 四项断言全部通过——失败通过退出码暴露（sed 返回 4）、
+  无部分修改、无标签/分支残留、工作区干净（无残留改动或暂存）。
 - 关联已知问题：2。
 
 ### 问题 3：不支持 CMake（已修复）
@@ -131,14 +133,13 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 - 单项目、且版本行带标记的场景可用（含 jxlsb/jsxlsb/rxlsb/cxlsb 的真实结构）。
 - package.json 合并/凭空生成问题已修复；多模块 `package.json` 逐文件更新正确。
 - CMake `project(... VERSION ...)` 已支持，`x.y.999 → x.y+1.0` 的升级路径可自动化。
+- 失败可识别并可回滚：退出码非 0，文件、标签、分支均恢复。
 - 多模块依赖引用仍漏更新（Cargo 内联表、Python install_requires、npm dependencies）。
-- 失败不具备事务性：无回滚、退出码不可信。
 
-建议后续修复方向（问题 1、3 已完成，其余不在本次变更范围）：
+建议后续修复方向（问题 1、2、3 已完成，其余不在本次变更范围）：
 
 1. ~~逐文件就地更新 package.json，禁止跨目录合并与凭空建文件~~（已完成）；
-2. 所有外部命令检查返回码，脚本开头 `set -euo pipefail`，并用 `trap` 在失败时回滚
-   （撤销标签/分支/文件改动）；
+2. ~~所有外部命令检查返回码，失败时回滚文件/标签/分支~~（已完成）；
 3. ~~增加 CMakeLists.txt 的 `project(... VERSION ...)` 支持~~（已完成）；
 4. 依赖引用改为按生态的语义匹配（Cargo 内联表、Python install_requires、npm dependencies、
    Maven dependency 版本），而非整行末端标记。

@@ -106,6 +106,9 @@ Will execute in the following order:
 4. Update version number in `.version` file.
 5. Commit changes with message `build: change to new version: {new_version}`.
 
+If any step fails, `ugv` restores every modified file, deletes the Git tag/branch it created
+in this run, and exits with a non-zero status (no partial state is left behind).
+
 ## fastugv - Branch Release Automation
 
 ### Purpose
