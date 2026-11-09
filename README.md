@@ -1,47 +1,45 @@
 # update-git-proj-ver
 
-Automatically update git project version numbers by placing a `.version` file.
+通过放置 `.version` 文件，自动更新 Git 项目版本号。
 
-## Core Features
+## 核心功能
 
-- **ugv**: Single version update tool, supports Maven/Gradle/Rust/Python/Node.js/CMake
-- **fastugv**: Git main/dev branch version release automation
+- **ugv**：单一版本号更新工具，支持 Maven/Gradle/Rust/Python/Node.js/CMake
+- **fastugv**：Git 主/开发分支版本发布自动化
 
-## Installation
+## 安装
 
 ```console
 sudo cp ugv /usr/local/bin
 sudo cp fastugv /usr/local/bin
 ```
 
-## Dependencies
+## 依赖
 
 1. `git`
 2. `sed`
 3. [fdfind](https://github.com/sharkdp/fd)
 
-## Testing
+## 测试
 
-A self-contained test environment covers five ecosystems (Maven / npm / Python / Cargo / CMake),
-each in single-project and multi-module (with one-way reference) form, plus failure-injection:
+项目内置自包含测试环境，覆盖五类生态（Maven / npm / Python / Cargo / CMake），
+每类均含单项目与多模块（带单向引用）形态，并包含故障注入用例：
 
 ```console
 ./test/run-tests.sh
 ```
 
-Each case is copied to a temporary directory, initialized as a git repo, executed with `ugv`,
-then verified for version updates, dependency references, unexpected files, and recoverability.
-See `test/REPORT.md` for the latest findings.
+每个用例会被复制到临时目录、初始化为 git 仓库、执行 `ugv` 后校验版本更新、依赖引用、
+多余文件与失败可还原性。最新结论见 `test/REPORT.md`。
 
-## ugv - Version Update Tool
+## ugv - 版本更新工具
 
-### Prerequisites
+### 前提
 
-1. Place a `.version` file in the project root directory with the version number, e.g. `1.0.0`.
-2. Mark the version number in files that need to be managed. Version references in dependencies
-   (e.g. Maven `<dependency>`, Cargo dependency entries) must also carry the same marker if they
-   should be managed. For npm, dependency entries in `package.json` whose name is a package in the
-   repository and whose value is exactly the old version are updated automatically.
+1. 在项目根目录下放置 `.version` 文件，内容为版本号，如 `1.0.0`。
+2. 在需要管理的文件中，对版本号进行标识。依赖引用中的版本号（如 Maven `<dependency>`、
+   Cargo 依赖条目）若需一并管理，同样必须带上相同标记。npm 的 `package.json` 中，
+   依赖名为仓库内部包、且版本值恰为旧版本的条目也会自动更新。
 
     1. Maven pom.xml
 
@@ -81,76 +79,82 @@ See `test/REPORT.md` for the latest findings.
       "version": "1.0.0"
     }
     ```
-    Note: package.json version must be on line 3.
+    注意：package.json 版本号必须在第 3 行。
 
     7. CMake CMakeLists.txt
 
     ```cmake
     project(my-project VERSION 1.0.0 LANGUAGES C) # managed by updgitver
     ```
-    Note: CMake does not support pre-release suffixes like `1.0.0-dev`; use a numeric
-    placeholder such as `1.0.999` for development and upgrade to the next release version.
+    注意：CMake 不支持 `1.0.0-dev` 这类预发布后缀；开发期可用 `1.0.999` 之类的数字占位，
+    发布时再升级到下一个版本号。
 
-3. (Optional) The project is managed with `git`.
+3. (可选) 项目基于 `git` 管理。
 
-### Usage
+### 使用
 
 ```console
 ugv 1.0.1
 ```
 
-Will execute in the following order:
+将会按如下顺序执行:
 
-1. Create a Git tag `v{old_version}_{yyyymmdd}` based on the latest Git `HEAD` and current date.
-2. Create a Git branch `v{old_version}` based on the latest Git `HEAD`.
-3. Update version numbers in `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json`/`CMakeLists.txt`.
-4. Update version number in `.version` file.
-5. Commit changes with message `build: change to new version: {new_version}`.
+1. 基于当前最新 Git `HEAD` 及当日日期建立 Git tag `v{旧版本}_{yyyymmdd}`。
+2. 基于当前最新 Git `HEAD` 建立 Git branch `v{旧版本}`。
+3. 更新 `pom.xml`/`build.gradle`/`Cargo.toml`/`pyproject.toml`/`setup.py`/`package.json`/`CMakeLists.txt` 中的版本号。
+4. 更新 `.version` 文件中的版本号。
+5. 提交变更，提交信息为 `build: change to new version: {新版本}`。
 
-If any step fails, `ugv` restores every modified file, deletes the Git tag/branch it created
-in this run, and exits with a non-zero status (no partial state is left behind).
+任一步骤失败时，`ugv` 会恢复本次所有被修改的文件、删除本次创建的 Git tag/branch，
+并以非 0 退出，不留下部分修改状态。
 
-## fastugv - Branch Release Automation
+## fastugv - 分支发布自动化
 
-### Purpose
+### 作用
 
-Automate version release workflow for projects with main/dev branch separation. Handles bidirectional sync between branches and version updates.
+为采用主/开发分支分离的项目自动化版本发布流程，实现分支间的双向同步和版本更新。
 
-### Usage
+### 使用
 
 ```console
-# Default: main and dev branches
-fastugv <main_version> <dev_version>
+# 默认：main 和 dev 分支
+fastugv <main版本> <dev版本>
 
-# Custom branch names
-fastugv <main_branch> <main_version> <dev_branch> <dev_version>
+# 自定义分支名
+fastugv <主分支> <main版本> <开发分支> <dev版本>
 ```
 
-### Workflow Example
+### 工作流示例
 
 ```console
 fastugv 1.0.0 1.1.0
 ```
 
-Will execute:
+将会执行：
 
-1. Checkout `main` branch
-2. Merge `dev` into `main`
-3. Run `ugv 1.0.0` on `main` (create tag, branch, update version)
-4. Checkout `dev` branch
-5. Merge `main` into `dev`
-6. Run `ugv 1.1.0` on `dev` (create tag, branch, update version)
-7. Checkout `main` branch
+1. 切换到 `main` 分支
+2. 将 `dev` 分支合并到 `main`
+3. 在 `main` 分支执行 `ugv 1.0.0`（创建 tag、分支、更新版本号）
+4. 切换到 `dev` 分支
+5. 将 `main` 分支合并到 `dev`
+6. 在 `dev` 分支执行 `ugv 1.1.0`（创建 tag、分支、更新版本号）
+7. 切回 `main` 分支
 
-### Use Cases
+### 适用场景
 
-- Release workflow with main/dev branch separation
-- Automatic version synchronization between branches
-- Ensures both branches have correct version numbers after release
+- 主/开发分支分离的发布流程
+- 自动完成版本同步和发布
+- 确保发布后两个分支版本号正确
 
-## Design Philosophy
+## 设计理念
 
-1. **Single Source of Truth**: `.version` file is the unique source of version number
-2. **Marker-based Management**: Version numbers are managed via `managed by updgitver` comments
-3. **Git Integration**: Automatically create tags and branches to preserve version history
-4. **Release Workflow**: `fastugv` enables bidirectional sync and version release for main/dev branches
+1. **单一真相源**：`.version` 文件作为版本号的唯一来源
+2. **标记即管理**：通过 `managed by updgitver` 注释标记需要管理的版本号
+3. **Git 深度集成**：自动创建 tag 和分支保存历史版本
+4. **发布工作流**：`fastugv` 实现 main/dev 分支的双向同步和版本发布
+
+## 相关文档
+
+- [English README](README_en.md)
+- [变更日志](CHANGELOG.md)
+- [使用手册](MANUAL.md)
