@@ -22,12 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   a root `package.json` (data-loss bug)
 - Detect failures (`set -eu`) and roll back all file changes plus any tag/branch created
   by the run, then exit non-zero
+- Update multi-module dependency references: any `managed by updgitver` line (Maven
+  `<dependency>`, Cargo inline tables, Python `install_requires`, CMake `project VERSION`)
+  plus npm dependencies pointing to in-repo packages
 
-### Known Issues (exposed by tests)
+### Known Limitations
 
-- Multi-module dependency references (Cargo inline table, Python install_requires) are not
-  updated even when marked, because only a few fixed line forms are matched
-- npm dependencies inside package.json cannot be marked (JSON has no comments)
+- npm dependency values must be exact (no `^`/`~`) and refer to a package in the repository
+- `package.json` must keep `version` on line 3 and dependency entries on single lines
 
 ## [1.2.0] - 2026-07-07
 

@@ -19,12 +19,14 @@
 
 - 逐个就地更新 `package.json`，不再把所有内容合并进根文件、也不再凭空创建根文件（数据破坏缺陷）
 - 识别失败（`set -eu`）并回滚本次全部文件改动及创建的 tag/branch，随后以非 0 退出
+- 支持多模块依赖引用更新：带 `managed by updgitver` 标记的行（Maven `<dependency>`、
+  Cargo 内联表、Python `install_requires`、CMake `project VERSION`）以及
+  npm 中指向仓库内部包的依赖
 
-### 已知问题（由测试暴露）
+### 已知限制
 
-- 多模块依赖引用（Cargo 内联表、Python install_requires）即使带标记也不会更新，
-  因为仅匹配少数固定行形式
-- package.json 内的 npm 依赖无法打标记（JSON 无注释语法）
+- npm 依赖版本必须是精确值（不含 `^`/`~`），且依赖名需为仓库内部包
+- `package.json` 需保持 `version` 在第 3 行、依赖条目为单行
 
 ## [1.2.0] - 2026-07-07
 

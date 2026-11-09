@@ -38,7 +38,8 @@ sudo cp fastugv /usr/local/bin
 
 1. 在项目根目录下放置 `.version` 文件，内容为版本号，如 `1.0.0`。
 2. 在需要管理的文件中，对版本号进行标识。依赖引用中的版本号（如 Maven `<dependency>`、
-   Cargo 依赖条目）若需一并管理，同样必须带上相同标记。
+   Cargo 依赖条目）若需一并管理，同样必须带上相同标记。npm 的 `package.json` 中，
+   依赖名为仓库内部包、且版本值恰为旧版本的条目也会自动更新。
 
     1. Maven pom.xml
 

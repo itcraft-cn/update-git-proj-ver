@@ -40,7 +40,8 @@ See `test/REPORT.md` for the latest findings.
 1. Place a `.version` file in the project root directory with the version number, e.g. `1.0.0`.
 2. Mark the version number in files that need to be managed. Version references in dependencies
    (e.g. Maven `<dependency>`, Cargo dependency entries) must also carry the same marker if they
-   should be managed.
+   should be managed. For npm, dependency entries in `package.json` whose name is a package in the
+   repository and whose value is exactly the old version are updated automatically.
 
     1. Maven pom.xml
 

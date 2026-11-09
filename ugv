@@ -19,6 +19,7 @@ fi
 new_ver=$1
 old_ver=$(cat .version)
 ver_date=$(date +%Y%m%d)
+escaped_old=$(printf '%s' "$old_ver" | sed 's/\./\\./g')
 
 if [ -e .git ]; then
     echo "git is detected."
@@ -90,47 +91,75 @@ if [ $git_exist -eq 1 ]; then
     created_branch="v${old_ver}"
 fi
 
+# 统一按标记替换：仅处理带 `managed by updgitver` 的行，
+# 这样可同时覆盖文件自身版本行与依赖引用（Maven dependency、Cargo 内联表、
+# Python install_requires、CMake project VERSION 等）。
+replace_marked() {
+    sed -i "/managed by updgitver/ s/${escaped_old}/${new_ver}/g" "$@"
+}
+
+backup_and_replace() {
+    local f
+    for f in "$@"; do
+        backup_file "$f"
+    done
+    replace_marked "$@"
+}
+
 mapfile -t pom_files < <(fd -t f -e xml pom.xml)
 if [ ${#pom_files[@]} -gt 0 ]; then
-    for f in "${pom_files[@]}"; do backup_file "$f"; done
-    sed -i "s/<version>${old_ver}<\/version> *<!-- managed by updgitver -->\$/<version>${new_ver}<\/version><!-- managed by updgitver -->/g" "${pom_files[@]}"
+    backup_and_replace "${pom_files[@]}"
 fi
 
 mapfile -t gradle_files < <(fd -t f -e gradle build.gradle)
 if [ ${#gradle_files[@]} -gt 0 ]; then
-    for f in "${gradle_files[@]}"; do backup_file "$f"; done
-    sed -i "s/'${old_ver}' *\/\/ managed by updgitver\$/'${new_ver}' \/\/ managed by updgitver/g" "${gradle_files[@]}"
+    backup_and_replace "${gradle_files[@]}"
 fi
 
 mapfile -t cmake_files < <(fd -t f -e txt CMakeLists.txt)
 if [ ${#cmake_files[@]} -gt 0 ]; then
-    for f in "${cmake_files[@]}"; do backup_file "$f"; done
-    sed -i "/# managed by updgitver\$/ s/VERSION ${old_ver}/VERSION ${new_ver}/" "${cmake_files[@]}"
+    backup_and_replace "${cmake_files[@]}"
 fi
 
 mapfile -t cargo_files < <(fd -t f -e toml Cargo.toml)
 if [ ${#cargo_files[@]} -gt 0 ]; then
-    for f in "${cargo_files[@]}"; do backup_file "$f"; done
-    sed -i "s/\"${old_ver}\" *# managed by updgitver\$/\"${new_ver}\" # managed by updgitver/g" "${cargo_files[@]}"
+    backup_and_replace "${cargo_files[@]}"
 fi
 
 mapfile -t pyproject_files < <(fd -t f -e toml -E lib pyproject.toml)
 if [ ${#pyproject_files[@]} -gt 0 ]; then
-    for f in "${pyproject_files[@]}"; do backup_file "$f"; done
-    sed -i "s/\"${old_ver}\" *# managed by updgitver\$/\"${new_ver}\" # managed by updgitver/g" "${pyproject_files[@]}"
+    backup_and_replace "${pyproject_files[@]}"
 fi
 
 mapfile -t setup_files < <(fd -t f -e py -E lib setup.py)
 if [ ${#setup_files[@]} -gt 0 ]; then
-    for f in "${setup_files[@]}"; do backup_file "$f"; done
-    sed -i "s/\"${old_ver}\", *# managed by updgitver\$/\"${new_ver}\", # managed by updgitver/g" "${setup_files[@]}"
+    backup_and_replace "${setup_files[@]}"
 fi
 
 mapfile -t pkg_files < <(fd -t f -e json -E node_modules package.json)
 if [ ${#pkg_files[@]} -gt 0 ]; then
+    # 收集仓库内所有包名，用于识别 workspace 内部依赖引用
+    pkg_names=""
+    for f in "${pkg_files[@]}"; do
+        name=$(awk -F'"' '/"name"[[:space:]]*:/ { print $4; exit }' "$f")
+        if [ -n "$name" ]; then
+            pkg_names="$pkg_names|$name"
+        fi
+    done
+    pkg_names="$pkg_names|"
+
     for f in "${pkg_files[@]}"; do
         backup_file "$f"
-        awk -v old="$old_ver" -v new="$new_ver" 'NR==3 && /"version"/ { sub(old, new) } 1' "$f" > "$tmp_dir/pkg.tmp"
+        awk -F'"' -v old="$old_ver" -v new="$new_ver" -v names="$pkg_names" '
+            {
+                if (NR == 3 && $0 ~ /"version"/) {
+                    sub(old, new)
+                } else if (NF >= 4 && $4 == old && index(names, "|" $2 "|") > 0) {
+                    sub(old, new)
+                }
+                print
+            }
+        ' "$f" > "$tmp_dir/pkg.tmp"
         cp "$tmp_dir/pkg.tmp" "$f"
     done
 fi

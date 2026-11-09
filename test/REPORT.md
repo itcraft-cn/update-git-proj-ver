@@ -7,7 +7,7 @@
 - 平台：Linux / bash 5.2 / fd / git
 - 运行入口：`test/run-tests.sh`
 - 工作目录：`/tmp/opencode/ugv-tests`（可用 `WORK_ROOT` 覆盖）
-- 断言总数：81，通过 75，失败 6
+- 断言总数：81，通过 81，失败 0
 
 ### 样本来源
 
@@ -110,22 +110,29 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 - 已知限制：CMake 不支持 `-dev` 后缀，开发期请使用 `x.y.999` 数字占位。
 - 关联已知问题：3。
 
-### 问题 4：多模块单向引用依赖未更新（功能缺陷）
+### 问题 4：多模块单向引用依赖未更新（已修复）
 
 本测试已严格遵循规约：所有需要管理的版本引用行都带有 `managed by updgitver` 标记
 （Maven `<dependency>` 的 `<version>`、Cargo 内联表行末、Python `install_requires` 行末）。
-在此前提下的实际结果：
+修复前的问题：
 
-- `cargo-multi`：`a = { path = "../a", version = "1.0.0" } # managed by updgitver`
-  已带标记，但未更新。当前 sed 要求 `version = "x" # managed...` 恰好位于行尾，
-  内联表在版本后还有 ` }`，因此不匹配。
-- `python-multi`：`"demo-a==1.0.0", # managed by updgitver` 已带标记，但未更新。
-  当前 sed 只匹配 `version="x", # managed...` 形式，无法匹配 `install_requires` 中的引用。
-- `node-multi`：`"@demo/a": "1.0.0"` 依赖未更新（问题 1 修复后仍存在）。
-  补充：JSON 无注释语法，依赖版本无法按本规约打标记，属于规约与实现都未覆盖的缺口。
-- Maven 通过，是因为依赖 `<version>` 行末恰好是标记，符合当前正则。
-- 根因：替换逻辑基于「整行末端紧邻标记」的正则，只覆盖少数固定写法，
-  无法表达结构化依赖引用；即使按规约打标，非该写法也会漏更新。
+- `cargo-multi`：`a = { path = "../a", version = "1.0.0" } # managed by updgitver` 未更新。
+- `python-multi`：`"demo-a==1.0.0", # managed by updgitver` 未更新。
+- `node-multi`：`"@demo/a": "1.0.0"` 依赖未更新（JSON 无注释，无法打标记）。
+
+修复方式：
+
+- 文本类构建文件统一改为「按标记行做版本替换」：
+  `sed -i "/managed by updgitver/ s/<old>/<new>/g"`，
+  不再依赖某一固定行写法，因此可覆盖 Maven dependency、Cargo 内联表、
+  Python install_requires、CMake project VERSION 等。
+- `package.json`：收集仓库内所有包名，识别 workspace 内部依赖；
+  对「依赖名属于本仓库包」且「版本值恰好等于旧版本」的条目一并替换，
+  同时仍更新第 3 行 `version`。
+- 已知限制：npm 依赖必须是精确版本（如 `1.0.0`，不含 `^`/`~`），且依赖名需为仓库内的包名。
+
+验证结果：`cargo-multi`、`python-multi`、`node-multi` 全部通过；
+Cargo 内联表、`install_requires`、npm workspace 依赖均正确更新。
 - 关联已知问题：4。
 
 ## 4. 结论
@@ -134,12 +141,10 @@ Maven 多模块中同时打了标记的 `<dependency>` 版本也能被更新。
 - package.json 合并/凭空生成问题已修复；多模块 `package.json` 逐文件更新正确。
 - CMake `project(... VERSION ...)` 已支持，`x.y.999 → x.y+1.0` 的升级路径可自动化。
 - 失败可识别并可回滚：退出码非 0，文件、标签、分支均恢复。
-- 多模块依赖引用仍漏更新（Cargo 内联表、Python install_requires、npm dependencies）。
+- 多模块依赖引用已覆盖：Cargo 内联表、Python install_requires、npm workspace 依赖均可更新。
+- 全部 81 项断言通过。
 
-建议后续修复方向（问题 1、2、3 已完成，其余不在本次变更范围）：
+建议后续增强（非缺陷，属于覆盖面扩展）：
 
-1. ~~逐文件就地更新 package.json，禁止跨目录合并与凭空建文件~~（已完成）；
-2. ~~所有外部命令检查返回码，失败时回滚文件/标签/分支~~（已完成）；
-3. ~~增加 CMakeLists.txt 的 `project(... VERSION ...)` 支持~~（已完成）；
-4. 依赖引用改为按生态的语义匹配（Cargo 内联表、Python install_requires、npm dependencies、
-   Maven dependency 版本），而非整行末端标记。
+1. npm 依赖若使用 `^`/`~` 范围或非仓库内部包，目前不处理；
+2. `package.json` 仍按「第 3 行 version」与单行依赖条目解析，不支持压缩成一行的 JSON。
